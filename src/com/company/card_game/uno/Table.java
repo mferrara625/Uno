@@ -14,19 +14,31 @@ public class Table {
      public static List<Card> discardPile = new ArrayList<>();
      private UnoDeck deck = new UnoDeck();
      private int playerCount;
+     private int botCount;
      private boolean canEndTurn = false;
      private boolean isReversed = false;
      private boolean wasSkipped = false;
      private boolean isDraw2 = false;
      private boolean isDraw4 = false;
      private boolean didWin = false;
+     private boolean triedAuto = false;
+     private boolean hasBot = false;
+
 
 
      public Table() {
-          playerCount = Console.getInt("How many players?", 1, 6, "Invalid player selection");
+          playerCount = Console.getInt("How many players? (1 - 6)", 1, 6, "Invalid player selection");
+          botCount = Console.getInt("How many bots? (0 - "+(6 - playerCount)+")", 0, (6 - playerCount), "Invalid bot selection");
           for (int count = 0; count < playerCount; count++) {
                Player newPlayer = new Player("Player " + (count + 1));
                hands.add(new Hand(newPlayer));
+          }
+          if(botCount > 0){
+               for (int count = 0; count < botCount; count++) {
+                    Player newPlayer = new Player("Bot " + (count + 1));
+                    hands.add(new Hand(newPlayer));
+               }
+               hasBot = true;
           }
      }
 
@@ -63,7 +75,7 @@ public class Table {
           System.out.println(showDiscardPile());
           System.out.println("\n" + hand.player.name + "'s Hand");
           System.out.println(hand.displayHand());
-          int choice;
+          int choice = 0;
           if(wasSkipped){
                while(isDraw2){
                     hand.addCardToHand(deck.deal());
@@ -77,6 +89,21 @@ public class Table {
                canEndTurn = true;
                choice = 3;
                wasSkipped = false;
+          }
+          else if (hand.player.name.contains("Bot ")){
+               if(!triedAuto){
+                    int selectedCard = autoPlay(hand);
+                    if(selectedCard > 0){
+                         playCard(hand);
+                    } else{
+                         hand.addCardToHand(deck.deal());
+                    }
+               }
+               else{
+                    hand.addCardToHand(deck.deal());
+               }
+               canEndTurn = true;
+               choice = 3;
           }
           else
           choice = Console.getInt("What would you like to do? \n1. Play a card\n2. Draw a card\n3. End Turn", 1, 3, "Invalid selection");
@@ -94,7 +121,12 @@ public class Table {
      }
 
      public void playCard(Hand hand){
-          int cardSelection = Console.getInt("Pick a card to play or press \"0\" to go back", 0, hand.cards.size(), "Invalid Selection");
+          int cardSelection;
+          if(hand.player.name.contains("Bot ")){
+               cardSelection = autoPlay(hand);
+          }
+          else
+          cardSelection = Console.getInt("Pick a card to play or press \"0\" to go back", 0, hand.cards.size(), "Invalid Selection");
           if(cardSelection == 0)
                turn(hand);
                else if((hand.cards.get(cardSelection - 1).getRank() == discardPile.get(discardPile.size() - 1).getRank()) || ((hand.cards.get(cardSelection - 1).getColor().equals(discardPile.get(discardPile.size() - 1).getColor()))) || hand.cards.get(cardSelection - 1).getRank() > 12){
@@ -112,7 +144,12 @@ public class Table {
                          isDraw2 = true;
                     }
                     if(discardPile.get(discardPile.size() - 1).getRank() > 12){
-                         int colorSelection = Console.getInt("Select a Color: \n1. Red\n2. Green\n3. Yellow\n4. Blue", 1, 4, "Invalid Selection");
+                         int colorSelection;
+                         if(hand.player.name.contains("Bot ")){
+                            colorSelection = (int)(Math.random() * 4) + 1;
+                         }
+                         else
+                         colorSelection = Console.getInt("Select a Color: \n1. Red\n2. Green\n3. Yellow\n4. Blue", 1, 4, "Invalid Selection");
                          discardPile.get(discardPile.size() - 1).color = deck.getColors()[colorSelection - 1];
                          if(discardPile.get(discardPile.size() - 1).getRank() == 14){
                               wasSkipped = true;
@@ -131,6 +168,7 @@ public class Table {
           deal();
           for(int i = 0; i < hands.size();){
                turn(hands.get(i));
+               triedAuto = false;
                if(didWin){
                     hands.get(i).player.score += calculateScore();
                     System.out.println("\n\t           " + hands.get(i).player.name + " Wins This Round!");
@@ -144,7 +182,7 @@ public class Table {
                     }
                     break;
                }
-               if(isReversed && playerCount > 2){
+               if(isReversed && (playerCount + botCount) > 2){
                     if(i <= 0){
                          i = hands.size();
                     }
@@ -193,6 +231,17 @@ public class Table {
                }
           }
           return playerScore;
+     }
+
+     public int autoPlay(Hand hand){
+          int result = 0;
+          for(int i = 0; i < hand.cards.size(); i++){
+               if((hand.cards.get(i).getRank() == discardPile.get(discardPile.size() - 1).getRank()) || ((hand.cards.get(i).getColor().equals(discardPile.get(discardPile.size() - 1).getColor()))) || hand.cards.get(i).getRank() > 12){
+                    result = (i + 1);
+                    triedAuto = true;
+               }
+          }
+          return result;
      }
 
 }
